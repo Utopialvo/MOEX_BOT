@@ -1,0 +1,27 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    hostname: clickhouse
+    environment:
+      - CLICKHOUSE_USER=utopialvo
+      - CLICKHOUSE_PASSWORD=utopialvo
+    volumes:
+      - ./fs/volumes/clickhouse/etc/clickhouse-server/config.d/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ./fs/volumes/clickhouse/etc/clickhouse-server/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
+      - ./fs/volumes/clickhouse/var/lib/clickhouse/:/var/lib/clickhouse/
+      - ./fs/volumes/clickhouse/var/log/clickhouse-server/:/var/log/clickhouse-server/
+    ports:
+      - "0.0.0.0:8123:8123"
+      - "0.0.0.0:9000:9000"
+  grafana:
+    image: grafana/grafana-enterprise:10.0.10-ubuntu
+    environment:
+      - GF_SECURITY_ADMIN_USER=utopialvo
+      - GF_SECURITY_ADMIN_PASSWORD=utopialvo
+    volumes:
+      - ./fs/volumes/grafana/etc/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./fs/volumes/grafana/etc/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+    ports:
+      - "0.0.0.0:3000:3000"
+    depends_on:
+      - clickhouse

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+requests
+pydantic
+pandas
+catboost
+clickhouse_connect
+asyncio
+requests
+apimoex
