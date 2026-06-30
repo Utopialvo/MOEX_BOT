@@ -1,27 +1,63 @@
+# Файл: docker-compose.yml
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    networks:
+      - internal-network
     hostname: clickhouse
     environment:
-      - CLICKHOUSE_USER=utopialvo
-      - CLICKHOUSE_PASSWORD=utopialvo
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
+      - CLICKHOUSE_DB=${CLICKHOUSE_DATABASE:-default}
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+      - AGENT_READONLY_PASSWORD=${AGENT_READONLY_PASSWORD:-secure_pass}
     volumes:
       - ./fs/volumes/clickhouse/etc/clickhouse-server/config.d/config.xml:/etc/clickhouse-server/config.d/config.xml
       - ./fs/volumes/clickhouse/etc/clickhouse-server/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
       - ./fs/volumes/clickhouse/var/lib/clickhouse/:/var/lib/clickhouse/
       - ./fs/volumes/clickhouse/var/log/clickhouse-server/:/var/log/clickhouse-server/
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
     ports:
-      - "0.0.0.0:8123:8123"
-      - "0.0.0.0:9000:9000"
-  grafana:
-    image: grafana/grafana-enterprise:10.0.10-ubuntu
+      - "8123:8123"
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "${CLICKHOUSE_USER}", "--password", "${CLICKHOUSE_PASSWORD}", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: moexapp
+    networks:
+      - internal-network
+    ports:
+      - "80:80"
     environment:
-      - GF_SECURITY_ADMIN_USER=utopialvo
-      - GF_SECURITY_ADMIN_PASSWORD=utopialvo
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-}
+      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE:-default}
+      - MODEL_DIR=/app/models
+      - DEFAULT_MODEL_PATH=/app/models/reg.model
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-10}
+      - PAUSE_1M=${PAUSE_1M:-60}
+      - PAUSE_10M=${PAUSE_10M:-600}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - AGENT_READONLY_USER=${AGENT_READONLY_USER:-agent_ro}
+      - AGENT_READONLY_PASSWORD=${AGENT_READONLY_PASSWORD:-secure_pass}
     volumes:
-      - ./fs/volumes/grafana/etc/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      - ./fs/volumes/grafana/etc/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
-    ports:
-      - "0.0.0.0:3000:3000"
+      - ./app:/app/app
+      - ./models:/app/models
+      - ./.env:/app/.env
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  internal-network:
+    external: true
+    name: internal-network

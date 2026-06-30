@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic-settings
+clickhouse-connect
+pandas
+catboost
+httpx
+apimoex
+python-dotenv
+python-multipart
